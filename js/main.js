@@ -78,8 +78,9 @@ if (audio.readyState > 0) {
     displayBufferedAmount();
 } else {
    audio.addEventListener('loadedmetadata', () => {
-    displayDuration();
-    setSliderMax();
+       displayDuration();
+       setSliderMax();
+       displayBufferedAmount();
    });
 }
 audio.addEventListener('progress', displayBufferedAmount);
