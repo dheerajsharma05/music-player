@@ -84,7 +84,10 @@ if (audio.readyState > 0) {
     });
 }
 
-audio.addEventListener('progress', displayBufferedAmount);
+audio.addEventListener('loadedmetadata', () => {
+    displayDuration();
+    setSliderMax();
+});
 
 seekSlider.addEventListener('input', () => {
     currentTimeContainer.textContent = calculateTime(seekSlider.value);
