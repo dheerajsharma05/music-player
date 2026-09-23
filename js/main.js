@@ -16,11 +16,11 @@ function togglePlayPause(pathClass) {
         paths[i].classList.toggle('active');
     }
     if (isPlaying) {
-        audio.pause();
+        audio.play();
         cancelAnimationFrame(animationFrame);
     }
     else {
-        audio.play();
+        audio.pause();
         requestAnimationFrame(whilePlaying);
     }
 }
