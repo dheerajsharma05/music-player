@@ -1,7 +1,4 @@
-var audio = document.getElementById("audio-track");
-var isPlaying = false;
-
-audio.volume = 0.5;
+const audio = document.getElementById("audio-track");
 
 const timelineContainer = document.getElementById("song-timeline");
 const seekSlider = document.getElementById("seek-slider");
@@ -10,67 +7,88 @@ const currentTimeContainer = document.getElementById("current-time");
 
 let animationFrame = null;
 
+audio.volume = 0.5;
 
-// ===============================
-// PLAY / PAUSE
-// ===============================
 
 function togglePlayPause(pathClass) {
 
-    var paths = document.querySelectorAll("." + pathClass);
-
-    for (var i = 0; i < paths.length; i++) {
-        paths[i].classList.toggle("active");
-    }
+    const paths = document.querySelectorAll("." + pathClass);
 
     if (audio.paused) {
 
-        audio.play().catch(function (error) {
-            console.log("Audio play error:", error);
-        });
+        audio.play()
+            .then(() => {
+
+                // Show pause icon
+                paths[0].classList.remove("active");
+                paths[1].classList.add("active");
+
+            })
+            .catch(error => {
+
+                console.error("Audio could not play:", error);
+
+            });
 
     } else {
 
         audio.pause();
+
+        // Show play icon
+        paths[0].classList.add("active");
+        paths[1].classList.remove("active");
     }
 }
 
 
 // ===============================
-// AUDIO EVENTS
+// AUDIO PLAY EVENT
 // ===============================
 
 audio.addEventListener("play", function () {
 
-    isPlaying = true;
-
     cancelAnimationFrame(animationFrame);
+
     animationFrame = requestAnimationFrame(whilePlaying);
 
 });
 
 
+// ===============================
+// AUDIO PAUSE EVENT
+// ===============================
+
 audio.addEventListener("pause", function () {
 
-    isPlaying = false;
-
     cancelAnimationFrame(animationFrame);
+
 });
 
 
-audio.addEventListener("ended", function () {
+// ===============================
+// AUDIO ENDED
+// ===============================
 
-    isPlaying = false;
+audio.addEventListener("ended", function () {
 
     cancelAnimationFrame(animationFrame);
 
     seekSlider.value = 0;
+
     currentTimeContainer.textContent = "0:00";
 
     timelineContainer.style.setProperty(
         "--seek-before-width",
         "0%"
     );
+
+    // Show play icon
+    const paths = document.querySelectorAll(".play-pause");
+
+    if (paths.length >= 2) {
+        paths[0].classList.add("active");
+        paths[1].classList.remove("active");
+    }
 });
 
 
@@ -78,19 +96,20 @@ audio.addEventListener("ended", function () {
 // TIME FORMAT
 // ===============================
 
-function calculateTime(secs) {
+function calculateTime(seconds) {
 
-    if (!isFinite(secs)) {
+    if (!isFinite(seconds)) {
         return "0:00";
     }
 
-    const minutes = Math.floor(secs / 60);
-    const seconds = Math.floor(secs % 60);
+    const minutes = Math.floor(seconds / 60);
 
-    const returnedSeconds =
-        seconds < 10 ? "0" + seconds : seconds;
+    const secs = Math.floor(seconds % 60);
 
-    return minutes + ":" + returnedSeconds;
+    const formattedSeconds =
+        secs < 10 ? "0" + secs : secs;
+
+    return minutes + ":" + formattedSeconds;
 }
 
 
@@ -104,7 +123,6 @@ function displayDuration() {
 
         durationContainer.textContent =
             calculateTime(audio.duration);
-
     }
 }
 
@@ -117,22 +135,27 @@ function setSliderMax() {
 
     if (isFinite(audio.duration)) {
 
-        seekSlider.max = Math.floor(audio.duration);
+        seekSlider.max =
+            Math.floor(audio.duration);
     }
 }
 
 
 // ===============================
-// BUFFERED PROGRESS
+// BUFFERED AMOUNT
 // ===============================
 
 function displayBufferedAmount() {
 
-    if (
-        !audio.buffered.length ||
-        !isFinite(audio.duration) ||
-        audio.duration === 0
-    ) {
+    if (!timelineContainer) {
+        return;
+    }
+
+    if (!audio.buffered.length) {
+        return;
+    }
+
+    if (!isFinite(audio.duration) || audio.duration <= 0) {
         return;
     }
 
@@ -150,18 +173,30 @@ function displayBufferedAmount() {
 
 
 // ===============================
-// UPDATE CURRENT TIME
+// UPDATE WHILE PLAYING
 // ===============================
 
 function whilePlaying() {
 
-    if (!audio.paused) {
+    if (audio.paused) {
+        return;
+    }
 
-        seekSlider.value =
-            Math.floor(audio.currentTime);
+    if (!audio.duration || !isFinite(audio.duration)) {
+        return;
+    }
 
-        currentTimeContainer.textContent =
-            calculateTime(audio.currentTime);
+    // Update slider
+    seekSlider.value =
+        Math.floor(audio.currentTime);
+
+    // Update current time
+    currentTimeContainer.textContent =
+        calculateTime(audio.currentTime);
+
+
+    // Update timeline
+    if (timelineContainer) {
 
         const percentage =
             (audio.currentTime / audio.duration) * 100;
@@ -170,10 +205,12 @@ function whilePlaying() {
             "--seek-before-width",
             percentage + "%"
         );
-
-        animationFrame =
-            requestAnimationFrame(whilePlaying);
     }
+
+
+    // Continue animation
+    animationFrame =
+        requestAnimationFrame(whilePlaying);
 }
 
 
@@ -181,49 +218,40 @@ function whilePlaying() {
 // SEEK SLIDER
 // ===============================
 
-seekSlider.addEventListener("input", function (e) {
+seekSlider.addEventListener("input", function () {
 
-    const value = e.target.value;
+    const value = Number(this.value);
 
     currentTimeContainer.textContent =
         calculateTime(value);
 
-    const percentage =
-        (value / seekSlider.max) * 100;
 
-    timelineContainer.style.setProperty(
-        "--seek-before-width",
-        percentage + "%"
-    );
-});
+    if (timelineContainer && seekSlider.max > 0) {
 
+        const percentage =
+            (value / seekSlider.max) * 100;
 
-// Change audio position after slider is moved
-seekSlider.addEventListener("change", function (e) {
-
-    audio.currentTime = e.target.value;
-
+        timelineContainer.style.setProperty(
+            "--seek-before-width",
+            percentage + "%"
+        );
+    }
 });
 
 
 // ===============================
-// RANGE PROGRESS
+// CHANGE AUDIO POSITION
 // ===============================
 
-function showRangeProgress(rangeInput) {
+seekSlider.addEventListener("change", function () {
 
-    const percentage =
-        (rangeInput.value / rangeInput.max) * 100;
-
-    timelineContainer.style.setProperty(
-        "--seek-before-width",
-        percentage + "%"
-    );
-}
+    audio.currentTime =
+        Number(this.value);
+});
 
 
 // ===============================
-// AUDIO METADATA
+// AUDIO METADATA LOADED
 // ===============================
 
 audio.addEventListener("loadedmetadata", function () {
@@ -232,11 +260,9 @@ audio.addEventListener("loadedmetadata", function () {
 
     setSliderMax();
 
-    currentTimeContainer.textContent = "0:00";
-
     seekSlider.value = 0;
 
-    showRangeProgress(seekSlider);
+    currentTimeContainer.textContent = "0:00";
 
     displayBufferedAmount();
 });
@@ -253,12 +279,15 @@ audio.addEventListener("progress", function () {
 
 
 // ===============================
-// TOGGLE BUTTON COLOR
+// HEART / REPEAT / SHUFFLE COLOR
 // ===============================
 
 function toggleColor(buttonId) {
 
-    document
-        .getElementById(buttonId)
-        .classList.toggle("active");
+    const button =
+        document.getElementById(buttonId);
+
+    if (button) {
+        button.classList.toggle("active");
+    }
 }
